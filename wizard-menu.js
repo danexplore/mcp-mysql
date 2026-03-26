@@ -39,4 +39,6 @@ inquirer.prompt([
     console.log(chalk.green('\n✨ Iniciando interface web...\n'));
     require('./web-ui.js');
   }
+}).catch(() => {
+  process.exit(0);
 });
