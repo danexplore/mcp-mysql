@@ -18,7 +18,14 @@ app.get('/api/server-info', (req, res) => {
 
 app.post('/api/test-connection', async (req, res) => {
   const { host, port, user, password, database } = req.body;
-  const result = await testConnection({ host, port, user, password, database });
+  const parsedPort = parseInt(port) || 3306;
+  if (!host || !user || !database) {
+    return res.json({ success: false, error: 'Campos obrigatórios: host, user, database' });
+  }
+  if (parsedPort < 1 || parsedPort > 65535) {
+    return res.json({ success: false, error: 'Porta inválida (1-65535)' });
+  }
+  const result = await testConnection({ host, port: parsedPort, user, password, database });
   if (result.success) {
     res.json({ success: true, message: '✅ Conexão bem-sucedida!' });
   } else {
@@ -29,9 +36,16 @@ app.post('/api/test-connection', async (req, res) => {
 app.post('/api/save-config', async (req, res) => {
   try {
     const { host, port, user, password, database } = req.body;
+    const parsedPort = parseInt(port) || 3306;
+    if (!host || !user || !database) {
+      return res.json({ success: false, error: 'Campos obrigatórios: host, user, database' });
+    }
+    if (parsedPort < 1 || parsedPort > 65535) {
+      return res.json({ success: false, error: 'Porta inválida (1-65535)' });
+    }
     const installDir = process.cwd();
 
-    const { serverJsPath } = generateFiles({ host, port, user, password, database }, installDir);
+    const { serverJsPath } = generateFiles({ host, port: parsedPort, user, password, database }, installDir);
 
     const alreadyExisted = mcpEntryExists();
     writeMcpConfig(serverJsPath);
@@ -284,6 +298,6 @@ console.log(`
 ╚════════════════════════════════════════════════════════════╝
 `);
 
-app.listen(PORT, () => {
+app.listen(PORT, '127.0.0.1', () => {
   console.log(`\n✨ Servidor rodando em http://localhost:${PORT}\n`);
 });
