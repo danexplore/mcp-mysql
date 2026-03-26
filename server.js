@@ -1,34 +1,4 @@
-const fs = require('fs');
-const path = require('path');
-
-function generateEnv(dbConfig, installDir) {
-  let env = `DB_HOST=${dbConfig.host}
-DB_PORT=${dbConfig.port}
-DB_USER=${dbConfig.user}
-DB_PASSWORD=${dbConfig.password}
-DB_NAME=${dbConfig.database}
-NODE_ENV=production
-LOG_FILE=${path.join(installDir, 'mcp-mysql.log')}`;
-
-  // Add SSL configuration if enabled
-  if (dbConfig.ssl && dbConfig.ssl.enable) {
-    env += `\nDB_SSL_MODE=${dbConfig.ssl.mode || 'REQUIRED'}`;
-    if (dbConfig.ssl.caPath) {
-      env += `\nDB_SSL_CA=${dbConfig.ssl.caPath}`;
-    }
-    if (dbConfig.ssl.certPath) {
-      env += `\nDB_SSL_CERT=${dbConfig.ssl.certPath}`;
-    }
-    if (dbConfig.ssl.keyPath) {
-      env += `\nDB_SSL_KEY=${dbConfig.ssl.keyPath}`;
-    }
-  }
-
-  return env;
-}
-
-function generateServerJs() {
-  return `#!/usr/bin/env node
+#!/usr/bin/env node
 require('dotenv').config();
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
@@ -56,15 +26,15 @@ if (process.env.DB_SSL_MODE) {
   }
   if (process.env.DB_SSL_CA) {
     try { sslConfig.ca = [fs.readFileSync(process.env.DB_SSL_CA, 'utf8')]; }
-    catch (e) { console.error(\`Failed to read CA certificate: \${e.message}\`); process.exit(1); }
+    catch (e) { console.error(`Failed to read CA certificate: ${e.message}`); process.exit(1); }
   }
   if (process.env.DB_SSL_CERT) {
     try { sslConfig.cert = fs.readFileSync(process.env.DB_SSL_CERT, 'utf8'); }
-    catch (e) { console.error(\`Failed to read client certificate: \${e.message}\`); process.exit(1); }
+    catch (e) { console.error(`Failed to read client certificate: ${e.message}`); process.exit(1); }
   }
   if (process.env.DB_SSL_KEY) {
     try { sslConfig.key = fs.readFileSync(process.env.DB_SSL_KEY, 'utf8'); }
-    catch (e) { console.error(\`Failed to read client key: \${e.message}\`); process.exit(1); }
+    catch (e) { console.error(`Failed to read client key: ${e.message}`); process.exit(1); }
   }
   DB_CONFIG.ssl = Object.keys(sslConfig).length > 0 ? sslConfig : true;
 }
@@ -73,22 +43,22 @@ let pool;
 
 function log(level, message) {
   const timestamp = new Date().toISOString();
-  const logMsg = \`[\${timestamp}] \${level}: \${message}\`;
+  const logMsg = `[${timestamp}] ${level}: ${message}`;
   if (process.env.LOG_FILE) {
-    fs.appendFileSync(process.env.LOG_FILE, logMsg + '\\n');
+    fs.appendFileSync(process.env.LOG_FILE, logMsg + '\n');
   }
 }
 
 function formatError(error) {
   switch (error.code) {
-    case 'ER_NO_SUCH_TABLE': return \`Tabela não encontrada: \${error.sqlMessage || error.message}\`;
-    case 'ER_BAD_FIELD_ERROR': return \`Coluna não encontrada: \${error.sqlMessage || error.message}\`;
+    case 'ER_NO_SUCH_TABLE': return `Tabela não encontrada: ${error.sqlMessage || error.message}`;
+    case 'ER_BAD_FIELD_ERROR': return `Coluna não encontrada: ${error.sqlMessage || error.message}`;
     case 'ER_PARSE_ERROR':
-    case 'ER_SYNTAX_ERROR': return \`Erro de sintaxe SQL: \${error.sqlMessage || error.message}\`;
+    case 'ER_SYNTAX_ERROR': return `Erro de sintaxe SQL: ${error.sqlMessage || error.message}`;
     case 'ER_ACCESS_DENIED_ERROR': return 'Acesso negado ao banco. Verifique as credenciais no .env';
-    case 'ER_DUP_ENTRY': return \`Registro duplicado: \${error.sqlMessage || error.message}\`;
-    case 'ECONNREFUSED': return \`Não foi possível conectar ao MySQL em \${DB_CONFIG.host}:\${DB_CONFIG.port}\`;
-    case 'ETIMEDOUT': return \`Timeout ao conectar ao MySQL em \${DB_CONFIG.host}:\${DB_CONFIG.port}\`;
+    case 'ER_DUP_ENTRY': return `Registro duplicado: ${error.sqlMessage || error.message}`;
+    case 'ECONNREFUSED': return `Não foi possível conectar ao MySQL em ${DB_CONFIG.host}:${DB_CONFIG.port}`;
+    case 'ETIMEDOUT': return `Timeout ao conectar ao MySQL em ${DB_CONFIG.host}:${DB_CONFIG.port}`;
     default: return error.message;
   }
 }
@@ -97,16 +67,16 @@ const FORBIDDEN = ['DROP', 'TRUNCATE', 'ALTER', 'CREATE'];
 
 function validateSQL(sql, allowed) {
   const upper = sql.trim().toUpperCase();
-  const firstWord = upper.split(/\\s/)[0];
+  const firstWord = upper.split(/\s/)[0];
   if (!allowed.some(op => upper.startsWith(op))) {
-    throw new Error(\`Operação "\${firstWord}" não permitida. Use: \${allowed.join(', ')}\`);
+    throw new Error(`Operação "${firstWord}" não permitida. Use: ${allowed.join(', ')}`);
   }
   if (upper.includes(';')) {
     throw new Error('Múltiplos statements não são permitidos — envie um comando por vez');
   }
   const found = FORBIDDEN.find(kw => upper.includes(kw));
   if (found) {
-    throw new Error(\`Palavra-chave proibida: \${found}. Operações DDL não são permitidas\`);
+    throw new Error(`Palavra-chave proibida: ${found}. Operações DDL não são permitidas`);
   }
 }
 
@@ -126,7 +96,7 @@ async function main() {
       try {
         const [tables] = await conn.execute('SHOW TABLES');
         const tableNames = tables.map(row => Object.values(row)[0]);
-        log('INFO', \`list_tables: \${tableNames.length} tabelas\`);
+        log('INFO', `list_tables: ${tableNames.length} tabelas`);
         return { content: [{ type: 'text', text: JSON.stringify(tableNames, null, 2) }] };
       } finally { conn.release(); }
     } catch (err) {
@@ -138,7 +108,7 @@ async function main() {
   server.tool('get_table_schema', { table_name: z.string().describe('Nome da tabela') }, async ({ table_name }) => {
     try {
       if (!/^[a-zA-Z0-9_]+$/.test(table_name)) {
-        return errorResponse(\`Nome de tabela inválido: "\${table_name}". Use apenas letras, números e _\`);
+        return errorResponse(`Nome de tabela inválido: "${table_name}". Use apenas letras, números e _`);
       }
       const conn = await pool.getConnection();
       try {
@@ -147,9 +117,9 @@ async function main() {
           [table_name, DB_CONFIG.database]
         );
         if (columns.length === 0) {
-          return errorResponse(\`Tabela "\${table_name}" não encontrada no banco \${DB_CONFIG.database}\`);
+          return errorResponse(`Tabela "${table_name}" não encontrada no banco ${DB_CONFIG.database}`);
         }
-        log('INFO', \`get_table_schema: \${table_name} (\${columns.length} colunas)\`);
+        log('INFO', `get_table_schema: ${table_name} (${columns.length} colunas)`);
         return { content: [{ type: 'text', text: JSON.stringify(columns, null, 2) }] };
       } finally { conn.release(); }
     } catch (err) {
@@ -164,7 +134,7 @@ async function main() {
       const conn = await pool.getConnection();
       try {
         const [rows] = await conn.execute(sql);
-        log('INFO', \`execute_select: \${rows.length} linhas\`);
+        log('INFO', `execute_select: ${rows.length} linhas`);
         return { content: [{ type: 'text', text: JSON.stringify({ rowCount: rows.length, rows }, null, 2) }] };
       } finally { conn.release(); }
     } catch (err) {
@@ -179,8 +149,8 @@ async function main() {
       const conn = await pool.getConnection();
       try {
         const [result] = await conn.execute(sql);
-        log('INFO', \`execute_write: \${result.affectedRows} linhas afetadas\`);
-        return { content: [{ type: 'text', text: \`\${result.affectedRows} linhas afetadas\` }] };
+        log('INFO', `execute_write: ${result.affectedRows} linhas afetadas`);
+        return { content: [{ type: 'text', text: `${result.affectedRows} linhas afetadas` }] };
       } finally { conn.release(); }
     } catch (err) {
       log('ERROR', err.message);
@@ -201,34 +171,4 @@ process.on('SIGINT', async () => {
 main().catch(err => {
   console.error('Erro fatal:', err.message);
   process.exit(1);
-});`;
-}
-
-function generatePackageJson() {
-  return JSON.stringify({
-    name: 'mcp-mysql-server',
-    version: '1.0.0',
-    type: 'commonjs',
-    scripts: { start: 'node server.js' },
-    dependencies: {
-      '@modelcontextprotocol/sdk': '^1.0.0',
-      'dotenv': '^16.3.1',
-      'mysql2': '^3.6.5',
-      'zod': '^3.22.0'
-    }
-  }, null, 2);
-}
-
-function generateFiles(dbConfig, installDir) {
-  if (!fs.existsSync(installDir)) {
-    fs.mkdirSync(installDir, { recursive: true });
-  }
-  const serverJsPath = path.join(installDir, 'server.js');
-  fs.writeFileSync(path.join(installDir, '.env'), generateEnv(dbConfig, installDir));
-  fs.writeFileSync(serverJsPath, generateServerJs());
-  try { fs.chmodSync(serverJsPath, '755'); } catch {}
-  fs.writeFileSync(path.join(installDir, 'package.json'), generatePackageJson());
-  return { serverJsPath };
-}
-
-module.exports = { generateEnv, generateServerJs, generatePackageJson, generateFiles };
+});
