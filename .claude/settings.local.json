@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rtk git:*)",
+      "Bash(npm install:*)",
+      "Bash(cd:*)",
+      "Bash(npx jest:*)",
+      "Bash(node --check setup.js)",
+      "Bash(node --check web-ui.js)",
+      "Bash(node --check index.js)",
+      "Bash(node --check lib/db.js)",
+      "Bash(node --check lib/config.js)",
+      "Bash(node --check lib/generator.js)",
+      "Bash(ls:*)",
+      "Bash(rtk npm:*)",
+      "Bash(node -e \"const {testConnection} = require\\(''./lib/db.js''\\); console.log\\(typeof testConnection\\)\")",
+      "Bash(node -e \"const {generateServerJs} = require\\(''./lib/generator.js''\\); console.log\\(typeof generateServerJs\\)\")",
+      "Bash(node -c setup.js)",
+      "Bash(node -e \":*)",
+      "Bash(git worktree:*)",
+      "Bash(cp:*)",
+      "Bash(node -e \"const d=require\\(''''/dev/stdin''''\\); console.log\\(JSON.stringify\\(d.exports ? Object.keys\\(d.exports\\).filter\\(k=>k.includes\\(''''server''''\\)\\) : [], null, 2\\)\\)\")",
+      "Bash(node:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(rtk node:*)",
+      "Bash(npm test:*)",
+      "Bash(git branch:*)"
+    ]
+  }
+}
