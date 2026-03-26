@@ -57,7 +57,58 @@ async function main() {
       }
     ]);
 
-    console.log(chalk.yellow.bold('\n🔗 PASSO 2: Testando Conexão\n'));
+    console.log(chalk.yellow.bold('\n🔒 PASSO 2A: Configuração SSL/TLS (Opcional)\n'));
+
+    const sslConfig = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'enable',
+        message: 'Deseja usar SSL/TLS para a conexão?',
+        default: false
+      },
+      {
+        type: 'list',
+        name: 'mode',
+        message: 'Modo de verificação SSL:',
+        choices: [
+          { name: 'REQUIRED - Verificar certificado do servidor', value: 'REQUIRED' },
+          { name: 'SKIP_VERIFY - Não verificar certificado (apenas desenvolvimento)', value: 'SKIP_VERIFY' }
+        ],
+        default: 'REQUIRED',
+        when: (answers) => answers.enable
+      },
+      {
+        type: 'input',
+        name: 'caPath',
+        message: 'Caminho para certificado CA (deixe em branco para padrão):',
+        when: (answers) => answers.enable && answers.mode === 'REQUIRED'
+      },
+      {
+        type: 'input',
+        name: 'certPath',
+        message: 'Caminho para certificado do cliente (opcional):',
+        when: (answers) => answers.enable
+      },
+      {
+        type: 'input',
+        name: 'keyPath',
+        message: 'Caminho para chave privada (opcional):',
+        when: (answers) => answers.enable
+      }
+    ]);
+
+    // Merge SSL config into dbConfig
+    if (sslConfig.enable) {
+      dbConfig.ssl = {
+        enable: true,
+        mode: sslConfig.mode,
+        caPath: sslConfig.caPath || null,
+        certPath: sslConfig.certPath || null,
+        keyPath: sslConfig.keyPath || null
+      };
+    }
+
+    console.log(chalk.yellow.bold('\n🔗 PASSO 3: Testando Conexão\n'));
     const spinner = ora('Testando conexão com MySQL...').start();
 
     const testResult = await testConnection(dbConfig);
@@ -69,8 +120,11 @@ async function main() {
     }
 
     spinner.succeed(chalk.green('Conexão bem-sucedida!'));
+    if (dbConfig.ssl?.enable) {
+      console.log(chalk.cyan('  🔒 SSL: Ativado (' + dbConfig.ssl.mode + ')'));
+    }
 
-    console.log(chalk.yellow.bold('\n📁 PASSO 3: Diretório de Instalação\n'));
+    console.log(chalk.yellow.bold('\n📁 PASSO 4: Diretório de Instalação\n'));
 
     const dirChoice = await inquirer.prompt([
       {
@@ -96,14 +150,14 @@ async function main() {
       installDir = resolveDir(dir);
     }
 
-    console.log(chalk.yellow.bold('\n📝 PASSO 4: Criando Arquivos\n'));
+    console.log(chalk.yellow.bold('\n📝 PASSO 5: Criando Arquivos\n'));
 
     const { serverJsPath } = generateFiles(dbConfig, installDir);
     console.log(chalk.green('✓ Arquivo .env criado'));
     console.log(chalk.green('✓ Arquivo server.js criado'));
     console.log(chalk.green('✓ Arquivo package.json criado'));
 
-    console.log(chalk.yellow.bold('\n📦 PASSO 5: Instalando Dependências\n'));
+    console.log(chalk.yellow.bold('\n📦 PASSO 6: Instalando Dependências\n'));
 
     const spinner2 = ora('Instalando npm dependencies...').start();
     try {
@@ -113,7 +167,7 @@ async function main() {
       spinner2.warn(chalk.yellow('Aviso: Instale dependências com: npm install'));
     }
 
-    console.log(chalk.yellow.bold('\n⚙️  PASSO 6: Configurando Claude Code MCP\n'));
+    console.log(chalk.yellow.bold('\n⚙️  PASSO 7: Configurando Claude Code MCP\n'));
 
     let mcpConfigured = false;
     let shouldWriteMcp = true;
