@@ -5,7 +5,7 @@
   "description": "MCP server for MySQL — connect your database to Claude AI",
   "type": "commonjs",
   "bin": {
-    "mcp-mysql": "./index.js"
+    "mcp-mysql": "index.js"
   },
   "files": [
     "index.js",
