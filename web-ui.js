@@ -10,11 +10,6 @@ const PORT = process.env.PORT || 3333;
 
 app.use(express.json());
 
-// Returns server cwd — useful for the browser to display where files will be created
-app.get('/api/server-info', (req, res) => {
-  res.json({ cwd: process.cwd() });
-});
-
 app.post('/api/test-connection', async (req, res) => {
   const { host, port, user, password, database, ssl } = req.body;
   const parsedPort = parseInt(port) || 3306;

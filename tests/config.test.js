@@ -4,24 +4,6 @@ const os = require('os');
 const path = require('path');
 const fs = require('fs');
 
-// resolveDir tests — no mocking needed
-test('resolveDir sem argumento retorna ~/mcp-mysql', () => {
-  const { resolveDir } = require('../lib/config');
-  const expected = path.join(os.homedir(), 'mcp-mysql');
-  assert.equal(resolveDir(), expected);
-});
-
-test('resolveDir com caminho absoluto retorna o mesmo caminho', () => {
-  const { resolveDir } = require('../lib/config');
-  const absPath = path.join(os.homedir(), 'custom');
-  assert.equal(resolveDir(absPath), absPath);
-});
-
-test('resolveDir com caminho relativo resolve para caminho absoluto', () => {
-  const { resolveDir } = require('../lib/config');
-  assert.ok(path.isAbsolute(resolveDir('algum/dir')));
-});
-
 // MCP config tests — use a real temp dir by monkey-patching os.homedir
 test('readMcpConfig retorna { mcpServers: {} } quando arquivo não existe', () => {
   const tmpDir = path.join(os.tmpdir(), 'mcp-config-test-' + Date.now() + '-a');
@@ -60,11 +42,19 @@ test('writeMcpConfig cria o arquivo e adiciona entrada mysql', () => {
   try {
     delete require.cache[require.resolve('../lib/config')];
     const { writeMcpConfig } = require('../lib/config');
-    writeMcpConfig('/path/to/server.js');
+    const dbConfig = { host: 'localhost', port: 3306, user: 'root', password: '', database: 'test' };
+    writeMcpConfig(dbConfig);
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     assert.deepEqual(config.mcpServers.mysql, {
-      command: 'node',
-      args: ['/path/to/server.js']
+      command: 'npx',
+      args: ['-y', '@danexplore/mcp-mysql'],
+      env: {
+        DB_HOST: 'localhost',
+        DB_PORT: '3306',
+        DB_USER: 'root',
+        DB_PASSWORD: '',
+        DB_NAME: 'test'
+      }
     });
   } finally {
     os.homedir = original;
@@ -80,7 +70,8 @@ test('mcpEntryExists retorna true após writeMcpConfig', () => {
   try {
     delete require.cache[require.resolve('../lib/config')];
     const { writeMcpConfig, mcpEntryExists } = require('../lib/config');
-    writeMcpConfig('/path/to/server.js');
+    const dbConfig = { host: 'localhost', port: 3306, user: 'root', password: '', database: 'test' };
+    writeMcpConfig(dbConfig);
     assert.equal(mcpEntryExists(), true);
   } finally {
     os.homedir = original;
@@ -101,7 +92,8 @@ test('writeMcpConfig preserva outras entradas existentes em mcpServers', () => {
     fs.writeFileSync(configPath, JSON.stringify({
       mcpServers: { outro: { command: 'python', args: ['server.py'] } }
     }));
-    writeMcpConfig('/path/to/server.js');
+    const dbConfig = { host: 'localhost', port: 3306, user: 'root', password: '', database: 'test' };
+    writeMcpConfig(dbConfig);
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     assert.deepEqual(config.mcpServers.outro, { command: 'python', args: ['server.py'] });
     assert.ok(config.mcpServers.mysql);

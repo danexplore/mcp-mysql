@@ -1,6 +1,7 @@
 {
   "name": "@danexplore/mcp-mysql",
   "version": "1.0.0",
+  "main": "index.js",
   "description": "MCP server for MySQL — connect your database to Claude AI",
   "type": "commonjs",
   "bin": {
