@@ -3,7 +3,6 @@
 require('dotenv').config();
 const express = require('express');
 const { testConnection } = require('./lib/db');
-const { generateFiles } = require('./lib/generator');
 const { writeMcpConfig, mcpEntryExists } = require('./lib/config');
 
 const app = express();
@@ -17,7 +16,7 @@ app.get('/api/server-info', (req, res) => {
 });
 
 app.post('/api/test-connection', async (req, res) => {
-  const { host, port, user, password, database } = req.body;
+  const { host, port, user, password, database, ssl } = req.body;
   const parsedPort = parseInt(port) || 3306;
   if (!host || !user || !database) {
     return res.json({ success: false, error: 'Campos obrigatórios: host, user, database' });
@@ -25,7 +24,7 @@ app.post('/api/test-connection', async (req, res) => {
   if (parsedPort < 1 || parsedPort > 65535) {
     return res.json({ success: false, error: 'Porta inválida (1-65535)' });
   }
-  const result = await testConnection({ host, port: parsedPort, user, password, database });
+  const result = await testConnection({ host, port: parsedPort, user, password, database, ssl });
   if (result.success) {
     res.json({ success: true, message: '✅ Conexão bem-sucedida!' });
   } else {
@@ -35,7 +34,7 @@ app.post('/api/test-connection', async (req, res) => {
 
 app.post('/api/save-config', async (req, res) => {
   try {
-    const { host, port, user, password, database } = req.body;
+    const { host, port, user, password, database, ssl } = req.body;
     const parsedPort = parseInt(port) || 3306;
     if (!host || !user || !database) {
       return res.json({ success: false, error: 'Campos obrigatórios: host, user, database' });
@@ -43,18 +42,14 @@ app.post('/api/save-config', async (req, res) => {
     if (parsedPort < 1 || parsedPort > 65535) {
       return res.json({ success: false, error: 'Porta inválida (1-65535)' });
     }
-    const installDir = process.cwd();
 
-    const { serverJsPath } = generateFiles({ host, port: parsedPort, user, password, database }, installDir);
-
+    const dbConfig = { host, port: parsedPort, user, password, database, ssl };
     const alreadyExisted = mcpEntryExists();
-    writeMcpConfig(serverJsPath);
+    writeMcpConfig(dbConfig);
 
     res.json({
       success: true,
       message: '✅ Configuração salva!',
-      directory: installDir,
-      serverJsPath,
       mcpConfigured: true,
       mcpAlreadyExisted: alreadyExisted
     });
@@ -170,6 +165,40 @@ function getHtml() {
           <div class="help-text">Nome exato do banco que deseja usar</div>
         </div>
 
+        <div class="form-group">
+          <label style="display: flex; align-items: center; font-weight: 500; cursor: pointer;">
+            <input type="checkbox" id="enableSSL" name="enableSSL" style="margin-right: 8px; cursor: pointer;">
+            🔒 Usar SSL/TLS (Opcional)
+          </label>
+          <div class="help-text">Recomendado para TiDB Cloud e conexões remotas</div>
+        </div>
+
+        <div id="sslConfig" style="display: none; padding: 15px; background: #f9f9f9; border-radius: 8px; margin-bottom: 20px;">
+          <div class="form-group">
+            <label for="sslMode">Modo de Verificação SSL</label>
+            <select id="sslMode" name="sslMode" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
+              <option value="REQUIRED">REQUIRED - Verificar certificado do servidor</option>
+              <option value="SKIP_VERIFY">SKIP_VERIFY - Não verificar (apenas desenvolvimento)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="caPath">Caminho para CA Certificate (deixe em branco para padrão)</label>
+            <input type="text" id="caPath" name="caPath" placeholder="/path/to/ca.pem">
+            <div class="help-text">Caminho absoluto para o arquivo CA do servidor</div>
+          </div>
+
+          <div class="form-group">
+            <label for="certPath">Caminho para Client Certificate (opcional)</label>
+            <input type="text" id="certPath" name="certPath" placeholder="/path/to/client-cert.pem">
+          </div>
+
+          <div class="form-group">
+            <label for="keyPath">Caminho para Client Key (opcional)</label>
+            <input type="text" id="keyPath" name="keyPath" placeholder="/path/to/client-key.pem">
+          </div>
+        </div>
+
         <div class="status" id="status"></div>
 
         <div class="button-group">
@@ -206,9 +235,39 @@ function getHtml() {
     const form = document.getElementById('configForm');
     const formScreen = document.getElementById('formScreen');
     const successScreen = document.getElementById('successScreen');
+    const enableSSL = document.getElementById('enableSSL');
+    const sslConfig = document.getElementById('sslConfig');
+
+    // Toggle SSL config visibility
+    enableSSL.addEventListener('change', () => {
+      sslConfig.style.display = enableSSL.checked ? 'block' : 'none';
+    });
+
+    function getFormData() {
+      const baseData = Object.fromEntries(new FormData(form));
+      // Remove the checkbox from data, handle SSL separately
+      const data = {
+        host: baseData.host,
+        port: baseData.port,
+        user: baseData.user,
+        password: baseData.password,
+        database: baseData.database
+      };
+
+      if (enableSSL.checked) {
+        data.ssl = {
+          enable: true,
+          mode: document.getElementById('sslMode').value,
+          caPath: document.getElementById('caPath').value || null,
+          certPath: document.getElementById('certPath').value || null,
+          keyPath: document.getElementById('keyPath').value || null
+        };
+      }
+      return data;
+    }
 
     testBtn.addEventListener('click', async () => {
-      const data = Object.fromEntries(new FormData(form));
+      const data = getFormData();
       testBtn.disabled = true;
       status.className = 'status loading';
       status.innerHTML = '<span class="spinner"></span>Testando conexão...';
@@ -240,7 +299,7 @@ function getHtml() {
     });
 
     nextBtn.addEventListener('click', async () => {
-      const data = Object.fromEntries(new FormData(form));
+      const data = getFormData();
       nextBtn.disabled = true;
       status.className = 'status loading';
       status.innerHTML = '<span class="spinner"></span>Salvando configuração...';
@@ -271,7 +330,7 @@ function getHtml() {
           }
 
           document.getElementById('claudeConfig').textContent =
-            'Command: node\nArgs: ["' + result.serverJsPath + '"]';
+            'Command: npx\nArgs: ["-y", "@danexplore/mcp-mysql"]\nEnv: DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME\n\n(Credenciais salvas em ~/.claude/claude.json)';
         } else {
           status.textContent = '❌ Erro: ' + result.error;
           status.className = 'status error';
