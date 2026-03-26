@@ -3,10 +3,8 @@
 const inquirer = require('inquirer');
 const chalk = require('chalk');
 const ora = require('ora');
-const { execSync } = require('child_process');
 const { testConnection } = require('./lib/db');
-const { generateFiles } = require('./lib/generator');
-const { resolveDir, mcpEntryExists, writeMcpConfig } = require('./lib/config');
+const { mcpEntryExists, writeMcpConfig } = require('./lib/config');
 
 // SSL Configuration Examples:
 // 1. TiDB Cloud: Use REQUIRED mode with their provided CA certificate
@@ -129,50 +127,7 @@ async function main() {
       console.log(chalk.cyan('  🔒 SSL: Ativado (' + dbConfig.ssl.mode + ')'));
     }
 
-    console.log(chalk.yellow.bold('\n📁 PASSO 4: Diretório de Instalação\n'));
-
-    const dirChoice = await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'useCurrentDir',
-        message: `Usar diretório atual (${process.cwd()})?`,
-        default: true
-      }
-    ]);
-
-    let installDir;
-    if (dirChoice.useCurrentDir) {
-      installDir = resolveDir(process.cwd());
-    } else {
-      const { dir } = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'dir',
-          message: 'Caminho do diretório:',
-          default: resolveDir()
-        }
-      ]);
-      installDir = resolveDir(dir);
-    }
-
-    console.log(chalk.yellow.bold('\n📝 PASSO 5: Criando Arquivos\n'));
-
-    const { serverJsPath } = generateFiles(dbConfig, installDir);
-    console.log(chalk.green('✓ Arquivo .env criado'));
-    console.log(chalk.green('✓ Arquivo server.js criado'));
-    console.log(chalk.green('✓ Arquivo package.json criado'));
-
-    console.log(chalk.yellow.bold('\n📦 PASSO 6: Instalando Dependências\n'));
-
-    const spinner2 = ora('Instalando npm dependencies...').start();
-    try {
-      execSync('npm install', { cwd: installDir, stdio: 'pipe' });
-      spinner2.succeed(chalk.green('Dependências instaladas!'));
-    } catch {
-      spinner2.warn(chalk.yellow('Aviso: Instale dependências com: npm install'));
-    }
-
-    console.log(chalk.yellow.bold('\n⚙️  PASSO 7: Configurando Claude Code MCP\n'));
+    console.log(chalk.yellow.bold('\n⚙️  PASSO 4: Configurando Claude Code MCP\n'));
 
     let mcpConfigured = false;
     let shouldWriteMcp = true;
@@ -191,7 +146,7 @@ async function main() {
 
     if (shouldWriteMcp) {
       try {
-        writeMcpConfig(serverJsPath);
+        writeMcpConfig(dbConfig);
         mcpConfigured = true;
         console.log(chalk.green('✓ Configuração MCP adicionada em ~/.claude/claude.json'));
       } catch (err) {
@@ -208,16 +163,16 @@ async function main() {
 ╚════════════════════════════════════════════════════════════╝
     `));
 
-    console.log(chalk.white.bold('📍 Localização:'), chalk.cyan(installDir));
     console.log(chalk.white.bold('🔑 Host:'), chalk.cyan(dbConfig.host));
     console.log(chalk.white.bold('📚 Database:'), chalk.cyan(dbConfig.database));
 
     if (mcpConfigured) {
       console.log(chalk.green.bold('\n✨ MCP configurado! Reinicie o Claude Code para ativar.\n'));
+      console.log(chalk.gray('   Configuração: npx -y @danexplore/mcp-mysql (com env vars no claude.json)\n'));
     } else {
       console.log(chalk.yellow.bold('\n📝 PRÓXIMAS ETAPAS:\n'));
       console.log(chalk.white('Configure manualmente em ~/.claude/claude.json:'));
-      console.log(chalk.gray(`   "mysql": { "command": "node", "args": ["${serverJsPath}"] }`));
+      console.log(chalk.gray(`   "mysql": { "command": "npx", "args": ["-y", "@danexplore/mcp-mysql"], "env": { "DB_HOST": "${dbConfig.host}", ... } }`));
     }
 
   } catch (error) {
