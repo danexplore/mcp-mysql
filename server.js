@@ -64,13 +64,12 @@ function formatError(error) {
 }
 
 const FORBIDDEN = ['DROP', 'TRUNCATE', 'ALTER', 'CREATE'];
-const ALLOWED = ['SELECT', 'INSERT', 'UPDATE', 'DELETE'];
 
-function validateSQL(sql) {
+function validateSQL(sql, allowed) {
   const upper = sql.trim().toUpperCase();
   const firstWord = upper.split(/\s/)[0];
-  if (!ALLOWED.some(op => upper.startsWith(op))) {
-    throw new Error(`Operação "${firstWord}" não permitida. Use: ${ALLOWED.join(', ')}`);
+  if (!allowed.some(op => upper.startsWith(op))) {
+    throw new Error(`Operação "${firstWord}" não permitida. Use: ${allowed.join(', ')}`);
   }
   if (upper.includes(';')) {
     throw new Error('Múltiplos statements não são permitidos — envie um comando por vez');
@@ -131,7 +130,7 @@ async function main() {
 
   server.tool('execute_select', { sql: z.string().describe('Query SELECT a executar') }, async ({ sql }) => {
     try {
-      validateSQL(sql);
+      validateSQL(sql, ['SELECT']);
       const conn = await pool.getConnection();
       try {
         const [rows] = await conn.execute(sql);
@@ -146,7 +145,7 @@ async function main() {
 
   server.tool('execute_write', { sql: z.string().describe('Statement INSERT, UPDATE ou DELETE') }, async ({ sql }) => {
     try {
-      validateSQL(sql);
+      validateSQL(sql, ['INSERT', 'UPDATE', 'DELETE']);
       const conn = await pool.getConnection();
       try {
         const [result] = await conn.execute(sql);
