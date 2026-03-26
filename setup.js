@@ -8,6 +8,11 @@ const { testConnection } = require('./lib/db');
 const { generateFiles } = require('./lib/generator');
 const { resolveDir, mcpEntryExists, writeMcpConfig } = require('./lib/config');
 
+// SSL Configuration Examples:
+// 1. TiDB Cloud: Use REQUIRED mode with their provided CA certificate
+// 2. Self-signed cert: Use SKIP_VERIFY mode (dev only) or provide CA path
+// 3. Client certificates: Provide all three paths (CA, cert, key)
+
 console.log(chalk.cyan.bold(`
 ╔════════════════════════════════════════════════════════════╗
 ║                                                            ║
