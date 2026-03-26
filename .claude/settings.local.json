@@ -29,7 +29,10 @@
       "Skill(update-config)",
       "Bash(git rm:*)",
       "Bash(DB_HOST=localhost DB_USER=root DB_NAME=test node -e \":*)",
-      "Bash(npm pkg:*)"
+      "Bash(npm pkg:*)",
+      "Bash(npm version:*)",
+      "Bash(npm publish:*)",
+      "Bash(npm view:*)"
     ]
   }
 }

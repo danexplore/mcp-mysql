@@ -74,7 +74,7 @@ function validateSQL(sql, allowed) {
   if (upper.includes(';')) {
     throw new Error('Múltiplos statements não são permitidos — envie um comando por vez');
   }
-  const found = FORBIDDEN.find(kw => upper.includes(kw));
+  const found = FORBIDDEN.find(kw => new RegExp(`\\b${kw}\\b`).test(upper));
   if (found) {
     throw new Error(`Palavra-chave proibida: ${found}. Operações DDL não são permitidas`);
   }
